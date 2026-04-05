@@ -1,4 +1,4 @@
-# hassanWAM
+# claudeWAM
 
 A Go implementation of the Warren Abstract Machine, following Hassan Aït-Kaci's
 tutorial reconstruction of the WAM step by step.
