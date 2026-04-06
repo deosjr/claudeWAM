@@ -29,7 +29,7 @@ const (
 	GET_VARIABLE // get_variable Xn, Ai  — copy Ai to Xn (first head occurrence)
 	GET_VALUE    // get_value Xn, Ai     — unify Xn with Ai (subsequent occurrence)
 
-	// ── Chapter 4: L2 ── adds environments (permanent variables) ─────────────
+	// ── Chapter 3: L2 ── adds environments (permanent variables) ─────────────
 
 	ALLOCATE   // allocate N     — push environment frame with N permanent variable slots
 	DEALLOCATE // deallocate     — pop environment frame (restore CE and CP)
@@ -37,7 +37,7 @@ const (
 	EXECUTE    // execute p/n   — like CALL but also deallocates (last-call optimisation)
 	PROCEED    // proceed        — return: jump to CP
 
-	// ── Chapter 5: Full WAM ── backtracking ──────────────────────────────────
+	// ── Chapter 4: L3 or Pure Prolog ─ disjunctions and backtracking ─────────
 
 	TRY_ME_ELSE   // try_me_else L  — push choice point; on fail jump to L
 	RETRY_ME_ELSE // retry_me_else L — update choice point's next-clause to L
@@ -50,6 +50,8 @@ const (
 	NECK_CUT  // neck_cut   — cut at neck of clause (first instruction after head)
 	GET_LEVEL // get_level Yn — save current choice point B into Yn
 	CUT       // cut Yn      — cut to choice point saved in Yn
+
+	// ── Chapter 5: optimisations ─────────────────────────────────────────────
 
 	// ── Chapter 5, Figure 5.2: specialized instructions for constants ────────
 	// Optimisation: treat atoms/integers as flat tagged values rather than
