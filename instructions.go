@@ -8,11 +8,13 @@ const (
 	// ── Chapter 2: L0 ── structure unification only ─────────────────────────
 
 	// Figure 2.2: query compilation instructions.
+
 	PUT_STRUCTURE Opcode = iota // put_structure f/n, Xi — push FUN cell, load STR into Xi
-	SET_VARIABLE               // set_variable Xi        — push new unbound var, load into Xi
-	SET_VALUE                  // set_value Xi           — push Xi's value onto heap
+	SET_VARIABLE                // set_variable Xi        — push new unbound var, load into Xi
+	SET_VALUE                   // set_value Xi           — push Xi's value onto heap
 
 	// Figure 2.6: program compilation instructions.
+
 	GET_STRUCTURE  // get_structure f/n, Xi — match/build structure in Xi
 	UNIFY_VARIABLE // unify_variable Xi     — READ: load subterm into Xi; WRITE: push new var
 	UNIFY_VALUE    // unify_value Xi        — READ: unify subterm with Xi; WRITE: push Xi
@@ -52,10 +54,10 @@ const (
 	// Optimisation: treat atoms/integers as flat tagged values rather than
 	// zero-arity structures, avoiding a heap cell and a register per constant.
 
-	SET_CONSTANT    // set_constant c    — push atom/int cell
-	UNIFY_CONSTANT  // unify_constant c  — READ: unify subterm with c; WRITE: push c
-	GET_CONSTANT    // get_constant c, Ai — unify Ai with constant c
-	PUT_CONSTANT    // put_constant c, Ai — load constant into Ai
+	SET_CONSTANT   // set_constant c    — push atom/int cell
+	UNIFY_CONSTANT // unify_constant c  — READ: unify subterm with c; WRITE: push c
+	GET_CONSTANT   // get_constant c, Ai — unify Ai with constant c
+	PUT_CONSTANT   // put_constant c, Ai — load constant into Ai
 
 	// ── Chapter 5, Figure 5.3: specialized instructions for lists ────────────
 	// Optimisation: dedicated LIS cells for lists instead of encoding as ./2.

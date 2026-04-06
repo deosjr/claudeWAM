@@ -49,6 +49,21 @@ type ChoicePoint struct {
 // WAM is the machine state. Compare to Bowen's interpreter struct: that had
 // procedures + an immutable substitution. Here we have a mutable heap, a
 // trail, explicit environments, and choice points instead.
+//
+// Stack (Appendix B.3): the paper gives environments and choice points a single
+// contiguous Stack region, with E and B as offsets into it. Frames of both
+// kinds are interleaved in creation order, and deallocating an environment
+// frame reclaims stack space that may sit below a live choice point. Here the
+// two kinds are kept in separate Go slices (envFrames, choicePoints); E and B
+// are indices into their respective slices. Lifetimes are managed by Go's GC
+// rather than by stack trimming. The semantics are identical but the memory
+// layout differs from the paper.
+//
+// PDL (Appendix B.3): the paper lists the PDL (Push-Down List used by unify)
+// as a named region of machine memory. Here it is a local variable inside
+// unify(), allocated fresh on each call and discarded on return. This is valid
+// because the PDL never needs to persist between instructions; a local slice
+// makes its transient nature explicit.
 type WAM struct {
 	Heap  [HeapSize]Cell
 	Trail [TrailSize]int

@@ -1,6 +1,6 @@
 package main
 
-// unify is the WAM's iterative unification algorithm (Section 2.2).
+// unify is the WAM's iterative unification algorithm (Figure 2.7).
 // It uses an explicit work-stack (PDL) rather than Go call-stack recursion.
 // Pairs of cells to unify are pushed; each iteration pops one pair and
 // either succeeds trivially, binds a variable, or pushes subterm pairs.

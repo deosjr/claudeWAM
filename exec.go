@@ -32,7 +32,6 @@ func (m *WAM) exec(i Instruction) {
 		// constructed directly into Xi. The invariant is the same — Xi holds
 		// STR(address_of_FUN) — but the heap is one cell more compact.
 		m.setReg(r2, m.newStr(i.Arg1))
-		m.Mode = WRITE
 
 	case SET_VARIABLE:
 		// First occurrence of a variable in a query: allocate fresh unbound cell.
@@ -46,16 +45,16 @@ func (m *WAM) exec(i Instruction) {
 	case GET_STRUCTURE:
 		// The key instruction: either we're matching an existing structure (READ)
 		// or binding an unbound variable to a new one (WRITE).
-		d := m.deref(m.getReg(r2))
-		switch d.Tag() {
+		addr := m.deref(m.getReg(r2))
+		switch addr.Tag() {
 		case TagREF:
 			// Unbound variable: push new structure on heap and bind.
-			m.bind(d, m.newStr(i.Arg1))
+			m.bind(addr, m.newStr(i.Arg1))
 			m.Mode = WRITE
 		case TagSTR:
-			funCell := m.Heap[d.Addr()]
+			funCell := m.Heap[addr.Addr()]
 			if funCell.Addr() == i.Arg1 {
-				m.S = d.Addr() + 1 // point S at first argument cell
+				m.S = addr.Addr() + 1 // point S at first argument cell
 				m.Mode = READ
 			} else {
 				m.Fail = true
@@ -293,7 +292,6 @@ func (m *WAM) exec(i Instruction) {
 	case PUT_LIST:
 		// List cell's value is the heap address of the head; tail is at addr+1.
 		m.setReg(r1, LIS(m.H))
-		m.Mode = WRITE
 
 	case SET_LIST:
 		// Push a LIS cell pointing at the current heap top (head will follow).
@@ -351,7 +349,7 @@ func (m *WAM) restoreChoicePoint() {
 	m.E = cp.CE
 	m.CP = cp.CP
 	m.unwindTrail(cp.TR)
-	m.H = cp.H  // discard heap cells above the saved top
+	m.H = cp.H // discard heap cells above the saved top
 	m.HB = cp.H
 	m.B0 = cp.B0
 	m.TR = cp.TR
