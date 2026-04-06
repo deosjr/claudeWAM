@@ -1,11 +1,5 @@
 package main
 
-// workItem is used by the BFS queue in compileHead / emitUnify.
-type workItem struct {
-	term Term
-	reg  Reg
-}
-
 // Compiler translates parsed Prolog clauses into WAM instruction sequences.
 //
 // The structure mirrors the paper's Figure 4.4 closely:
@@ -33,6 +27,26 @@ func NewCompiler() *Compiler {
 
 func (c *Compiler) Program() *Program {
 	return c.prog
+}
+
+// Program is the output of the compiler and the input to the WAM.
+// The compiler has no dependency on the WAM; it only produces Programs.
+// The WAM has no dependency on the compiler; it only consumes Programs.
+type Program struct {
+	Atoms  *AtomTable
+	Code   []Instruction
+	Labels map[string]int // functor string "f/n" → index into Code
+}
+
+func NewProgram() *Program {
+	return &Program{
+		Atoms:  NewAtomTable(),
+		Labels: map[string]int{},
+	}
+}
+
+func (p *Program) emit(op Opcode, a1, a2 int) {
+	p.Code = append(p.Code, Instruction{op, a1, a2})
 }
 
 // resetTemps initialises the used-register set for a new clause. Argument
@@ -182,6 +196,12 @@ func (c *Compiler) CompileQuery(goal Compound) (startPC int, varRegs map[string]
 		varRegs[name] = info.Reg
 	}
 	return startPC, varRegs
+}
+
+// workItem is used by the BFS queue in compileHead / emitUnify.
+type workItem struct {
+	term Term
+	reg  Reg
 }
 
 // compileHead emits GET_* instructions for each argument of the head.

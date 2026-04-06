@@ -24,8 +24,14 @@ func (m *WAM) exec(i Instruction) {
 		// Push a FUN cell and point Xi at it via STR.
 		// This begins a structure block on the heap; subsequent SET_* instructions
 		// fill in the arguments.
-		addr := m.push(FUN(i.Arg1))
-		m.setReg(r2, STR(addr))
+		//
+		// The paper's pseudocode first writes a STR cell to the heap at HEAP[H]
+		// pointing forward to HEAP[H+1] (the FUN cell), then copies that STR cell
+		// into Xi, consuming two heap slots per structure header. Here we skip the
+		// intermediate heap write: only the FUN cell is pushed, and STR(addr) is
+		// constructed directly into Xi. The invariant is the same — Xi holds
+		// STR(address_of_FUN) — but the heap is one cell more compact.
+		m.setReg(r2, m.newStr(i.Arg1))
 		m.Mode = WRITE
 
 	case SET_VARIABLE:
@@ -57,8 +63,7 @@ func (m *WAM) exec(i Instruction) {
 		switch d.Tag() {
 		case TagREF:
 			// Unbound variable: push new structure on heap and bind.
-			addr := m.push(FUN(i.Arg1))
-			m.bind(d, STR(addr))
+			m.bind(d, m.newStr(i.Arg1))
 			m.Mode = WRITE
 		case TagSTR:
 			funCell := m.Heap[d.Addr()]

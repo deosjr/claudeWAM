@@ -64,3 +64,11 @@ func (m *WAM) newVar() Cell {
 	m.push(REF(addr)) // points to itself = unbound
 	return REF(addr)
 }
+
+// newStr pushes a new FUN cell onto the heap and returns a STR cell pointing
+// to it. This is the allocation half of put_structure / get_structure (write
+// mode); subsequent SET_* or UNIFY_* instructions fill in the arguments.
+func (m *WAM) newStr(fid int) Cell {
+	addr := m.push(FUN(fid))
+	return STR(addr)
+}
