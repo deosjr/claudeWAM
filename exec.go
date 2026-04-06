@@ -84,7 +84,7 @@ func (m *WAM) exec(i Instruction) {
 			m.push(m.getReg(r1))
 		}
 
-	// ── Chapter 3: L1 ─────────────────────────────────────────────────────
+	// ── Chapter 2.4: L1 ───────────────────────────────────────────────────
 
 	case PUT_VARIABLE:
 		// First occurrence of a variable in a clause body: push a fresh unbound
@@ -96,19 +96,6 @@ func (m *WAM) exec(i Instruction) {
 	case PUT_VALUE:
 		m.setReg(r2, m.getReg(r1))
 
-	case PUT_UNSAFE_VALUE:
-		// Like PUT_VALUE but if the Y variable is still local to this environment
-		// (above HB) we must globalise it by pushing a copy onto the heap.
-		// This prevents a dangling reference if the environment is deallocated
-		// before the variable is used.
-		v := m.deref(m.getReg(r1))
-		if v.IsREF() && v.Addr() >= m.HB {
-			globalised := m.newVar()
-			m.bind(v, globalised)
-			v = globalised
-		}
-		m.setReg(r2, v)
-
 	case GET_VARIABLE:
 		m.setReg(r1, m.getReg(r2))
 
@@ -117,7 +104,9 @@ func (m *WAM) exec(i Instruction) {
 			m.Fail = true
 		}
 
-	// ── Chapter 4: L2 ─────────────────────────────────────────────────────
+	// NOTE: CALL and PROCEED are included in L1, but extended below for L2
+
+	// ── Chapter 3: L2 ─────────────────────────────────────────────────────
 
 	case ALLOCATE:
 		// Create an environment frame. Permanent variables (those that span a
@@ -327,6 +316,22 @@ func (m *WAM) exec(i Instruction) {
 				m.newVar()
 			}
 		}
+
+	// ── Chapter 5.8.2: unsafe variables ────────────────────────────────────
+
+	case PUT_UNSAFE_VALUE:
+		// Like PUT_VALUE but if the Y variable is still local to this environment
+		// (above HB) we must globalise it by pushing a copy onto the heap.
+		// This prevents a dangling reference if the environment is deallocated
+		// before the variable is used.
+		v := m.deref(m.getReg(r1))
+		if v.IsREF() && v.Addr() >= m.HB {
+			globalised := m.newVar()
+			m.bind(v, globalised)
+			v = globalised
+		}
+		m.setReg(r2, v)
+
 	}
 }
 

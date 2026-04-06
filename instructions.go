@@ -19,11 +19,12 @@ const (
 	UNIFY_VARIABLE // unify_variable Xi     — READ: load subterm into Xi; WRITE: push new var
 	UNIFY_VALUE    // unify_value Xi        — READ: unify subterm with Xi; WRITE: push Xi
 
-	// ── Chapter 3: L1 ── adds top-level argument registers ──────────────────
+	// ── Chapter 2.4: L1 ── adds top-level argument registers ──────────────────
 
-	PUT_VARIABLE     // put_variable Xn, Ai   — new unbound var in Xn AND Ai (first body occurrence)
-	PUT_VALUE        // put_value Xn, Ai      — copy Xn to Ai (subsequent occurrence)
-	PUT_UNSAFE_VALUE // put_unsafe_value Yn, Ai — like put_value but globalises if var is local
+	// Figure 2.8: variable argument instructions
+
+	PUT_VARIABLE // put_variable Xn, Ai   — new unbound var in Xn AND Ai (first body occurrence)
+	PUT_VALUE    // put_value Xn, Ai      — copy Xn to Ai (subsequent occurrence)
 
 	GET_VARIABLE // get_variable Xn, Ai  — copy Ai to Xn (first head occurrence)
 	GET_VALUE    // get_value Xn, Ai     — unify Xn with Ai (subsequent occurrence)
@@ -72,6 +73,10 @@ const (
 
 	SET_VOID   // set_void n   — push n anonymous unbound vars
 	UNIFY_VOID // unify_void n — READ: skip n subterms; WRITE: push n vars
+
+	// Chapter 5.8.2: Unsafe variables
+
+	PUT_UNSAFE_VALUE // put_unsafe_value Yn, Ai — like put_value but globalises if var is local
 )
 
 // Instruction is one WAM instruction. Arg1 and Arg2 are multipurpose:
