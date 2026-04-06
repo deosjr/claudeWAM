@@ -2,16 +2,16 @@ package main
 
 // Compiler translates parsed Prolog clauses into WAM instruction sequences.
 //
-// The structure mirrors the paper's Figure 4.4 closely:
-//   - compile_clause  → CompileClause
-//   - compile_head    → compileHead (emits GET_* instructions)
-//   - compile_body    → compileGoal (emits PUT_* instructions per goal)
-//   - compile_arg     → compileArg  (recursive, handles nested terms)
+// The paper does not name its compilation functions explicitly; the names here
+// (CompileClause, compileHead, compileGoal, compileArg) are our own.
 //
-// The key insight: HEAD compilation is top-down (BFS order, using a work queue
-// of subterms), so that the argument registers A0..An are consumed in order.
-// BODY compilation is bottom-up (DFS, building inner structures before outer),
-// so that inner terms are ready in X registers before PUT_STRUCTURE is emitted.
+// Head compilation (GET_* instructions) is top-down: BFS over the argument
+// registers so that the WAM's read cursor S encounters subterms in the order
+// they appear on the heap. Body compilation (PUT_* instructions) is bottom-up:
+// DFS post-order so that every subterm's register is populated before the
+// enclosing PUT_STRUCTURE references it. Both traversal orders correspond to
+// the paper's explicit register-assignment tables; the traversals enforce the
+// required ordering implicitly rather than materialising an intermediate form.
 //
 // The compiler has no dependency on the WAM. It produces a Program which the
 // WAM loads separately via WAM.Load.
@@ -205,8 +205,17 @@ type workItem struct {
 }
 
 // compileHead emits GET_* instructions for each argument of the head.
-// BFS: argument registers are consumed left-to-right before recursing into
-// substructures, which mirrors the order the WAM expects to see them.
+//
+// The paper's register-assignment table for a program term lists equations in
+// top-down order: the outer structure first, its arguments next, and nested
+// substructures last. This is BFS. The WAM requires this order because
+// GET_STRUCTURE sets the read cursor S to the first argument slot of the
+// structure; the UNIFY_* instructions that immediately follow consume those
+// slots left-to-right. A nested compound therefore cannot be visited until
+// its parent's UNIFY_VARIABLE has loaded its address into a register, which
+// only happens once the parent's GET_STRUCTURE has run. BFS over the work
+// queue enforces that constraint without materialising the flattened table
+// as an intermediate data structure.
 func (c *Compiler) compileHead(head Compound, vars map[string]VarInfo, seen map[string]bool) {
 	queue := []workItem{}
 	for i, arg := range head.Args {
@@ -296,6 +305,17 @@ func (c *Compiler) compileGoal(goal Compound, vars map[string]VarInfo, seen map[
 }
 
 // compileArg recursively builds a term into a target register using PUT_*.
+//
+// The paper's register-assignment table for a query term lists equations in
+// bottom-up order: inner structures before the outer structures that reference
+// them. This is DFS post-order. The WAM requires this order because
+// PUT_STRUCTURE is immediately followed by SET_VALUE instructions that push
+// already-computed register values; those registers must be populated before
+// PUT_STRUCTURE runs. Recursing into each argument before emitting the parent's
+// PUT_STRUCTURE gives post-order naturally — the recursive calls emit all the
+// inner PUT_STRUCTURE sequences, and only when they return does the outer
+// PUT_STRUCTURE get emitted. No explicit flattening or reordering step is
+// needed; the call stack enforces the constraint.
 func (c *Compiler) compileArg(t Term, target Reg, vars map[string]VarInfo, seen map[string]bool) {
 	switch v := t.(type) {
 	case Var:

@@ -43,19 +43,6 @@ func (m *WAM) exec(i Instruction) {
 		// Subsequent occurrence: push the already-known value.
 		m.push(m.getReg(r1))
 
-	case SET_CONSTANT:
-		m.push(Cell(i.Arg1))
-
-	case SET_VOID:
-		for k := 0; k < i.Arg1; k++ {
-			m.newVar()
-		}
-
-	case SET_LIST:
-		// Push a LIS cell pointing at the current heap top (head will follow).
-		// Like PUT_LIST but used inside a SET_* sequence (no register target).
-		m.push(LIS(m.H + 1))
-
 	case GET_STRUCTURE:
 		// The key instruction: either we're matching an existing structure (READ)
 		// or binding an unbound variable to a new one (WRITE).
@@ -98,33 +85,11 @@ func (m *WAM) exec(i Instruction) {
 			m.push(m.getReg(r1))
 		}
 
-	case UNIFY_CONSTANT:
-		switch m.Mode {
-		case READ:
-			if !m.unify(Cell(i.Arg1), m.Heap[m.S]) {
-				m.Fail = true
-			}
-			m.S++
-		case WRITE:
-			m.push(Cell(i.Arg1))
-		}
-
-	case UNIFY_VOID:
-		switch m.Mode {
-		case READ:
-			m.S += i.Arg1
-		case WRITE:
-			for k := 0; k < i.Arg1; k++ {
-				m.newVar()
-			}
-		}
-
 	// ── Chapter 3: L1 ─────────────────────────────────────────────────────
 
 	case PUT_VARIABLE:
 		// First occurrence of a variable in a clause body: push a fresh unbound
 		// var onto the heap and store it in BOTH the X register AND the arg register.
-		// (In Bowen, VAR in building mode just appended to the queue.)
 		v := m.newVar()
 		m.setReg(r1, v)
 		m.setReg(r2, v)
@@ -145,14 +110,6 @@ func (m *WAM) exec(i Instruction) {
 		}
 		m.setReg(r2, v)
 
-	case PUT_CONSTANT:
-		m.setReg(r2, Cell(i.Arg1))
-
-	case PUT_LIST:
-		// List cell's value is the heap address of the head; tail is at addr+1.
-		m.setReg(r1, LIS(m.H))
-		m.Mode = WRITE
-
 	case GET_VARIABLE:
 		m.setReg(r1, m.getReg(r2))
 
@@ -161,32 +118,11 @@ func (m *WAM) exec(i Instruction) {
 			m.Fail = true
 		}
 
-	case GET_CONSTANT:
-		d := m.deref(m.getReg(r2))
-		if !m.unify(Cell(i.Arg1), d) {
-			m.Fail = true
-		}
-
-	case GET_LIST:
-		d := m.deref(m.getReg(r1))
-		switch d.Tag() {
-		case TagREF:
-			addr := m.H
-			m.bind(d, LIS(addr))
-			m.Mode = WRITE
-		case TagLIS:
-			m.S = d.Addr()
-			m.Mode = READ
-		default:
-			m.Fail = true
-		}
-
 	// ── Chapter 4: L2 ─────────────────────────────────────────────────────
 
 	case ALLOCATE:
 		// Create an environment frame. Permanent variables (those that span a
-		// CALL) live here, not in X registers. Compare to Bowen's implicit frame
-		// in each clause — here it's explicit and shared across nested calls.
+		// CALL) live here, not in X registers.
 		frame := EnvironmentFrame{
 			CE: m.E,
 			CP: m.CP,
@@ -231,8 +167,7 @@ func (m *WAM) exec(i Instruction) {
 		m.P = label
 
 	case PROCEED:
-		// Return: restore P from CP. With DEALLOCATE already done, this is all
-		// that's needed. Bowen's EXIT had to also handle the continuation list.
+		// Return: restore P from CP.
 		m.P = m.CP
 
 	// ── Chapter 5: backtracking ────────────────────────────────────────────
@@ -283,7 +218,7 @@ func (m *WAM) exec(i Instruction) {
 			TR:         m.TR,
 			H:          m.H,
 			B0:         m.B0,
-			NextClause: m.P, // next instruction after this one
+			NextClause: m.P,
 			Args:       make([]Cell, i.Arg2),
 		}
 		for k := 0; k < i.Arg2; k++ {
@@ -327,12 +262,77 @@ func (m *WAM) exec(i Instruction) {
 			m.B = cutB
 			m.tidyTrail()
 		}
+
+	// ── Chapter 5, Figure 5.2: constants ──────────────────────────────────
+
+	case SET_CONSTANT:
+		m.push(Cell(i.Arg1))
+
+	case UNIFY_CONSTANT:
+		switch m.Mode {
+		case READ:
+			if !m.unify(Cell(i.Arg1), m.Heap[m.S]) {
+				m.Fail = true
+			}
+			m.S++
+		case WRITE:
+			m.push(Cell(i.Arg1))
+		}
+
+	case GET_CONSTANT:
+		d := m.deref(m.getReg(r2))
+		if !m.unify(Cell(i.Arg1), d) {
+			m.Fail = true
+		}
+
+	case PUT_CONSTANT:
+		m.setReg(r2, Cell(i.Arg1))
+
+	// ── Chapter 5, Figure 5.3: lists ──────────────────────────────────────
+
+	case PUT_LIST:
+		// List cell's value is the heap address of the head; tail is at addr+1.
+		m.setReg(r1, LIS(m.H))
+		m.Mode = WRITE
+
+	case SET_LIST:
+		// Push a LIS cell pointing at the current heap top (head will follow).
+		// Used inside a SET_* sequence (no register target).
+		m.push(LIS(m.H + 1))
+
+	case GET_LIST:
+		d := m.deref(m.getReg(r1))
+		switch d.Tag() {
+		case TagREF:
+			m.bind(d, LIS(m.H))
+			m.Mode = WRITE
+		case TagLIS:
+			m.S = d.Addr()
+			m.Mode = READ
+		default:
+			m.Fail = true
+		}
+
+	// ── Chapter 5, Figure 5.6: void variables ─────────────────────────────
+
+	case SET_VOID:
+		for k := 0; k < i.Arg1; k++ {
+			m.newVar()
+		}
+
+	case UNIFY_VOID:
+		switch m.Mode {
+		case READ:
+			m.S += i.Arg1
+		case WRITE:
+			for k := 0; k < i.Arg1; k++ {
+				m.newVar()
+			}
+		}
 	}
 }
 
 // backtrack restores the machine state from the most recent choice point.
-// This is the entire undo mechanism — contrast with Bowen which never mutates
-// and therefore never needs to undo anything.
 func (m *WAM) backtrack() {
 	if m.B < 0 {
 		m.P = -1 // no choice point: halt with failure
@@ -371,7 +371,7 @@ func (m *WAM) tidyTrail() {
 }
 
 // procLabel looks up the entry point for a procedure by its functor id.
-// Returns (-1, false) if not found (triggers failure, not panic — unlike Bowen).
+// Returns (-1, false) if not found (triggers failure, not panic).
 func (m *WAM) procLabel(functorID int) (int, bool) {
 	f := m.Atoms.FuncEntry(functorID)
 	key := f.String()
